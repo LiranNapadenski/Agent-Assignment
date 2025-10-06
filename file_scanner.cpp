@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 
 namespace fs = std::filesystem;
 
@@ -17,7 +18,7 @@ std::vector<std::uint8_t> file_path_to_vector(const fs::path& path){
 
     std::vector<std::uint8_t> fileData;
 
-    if(!fs::is_regular_file(path)){
+    if(!fs::is_regular_file(path) || !fs::exists(path)){
         std::cerr << "path does not point to a file" << "\n";
         throw NOT_FILE;
     }
@@ -31,10 +32,15 @@ std::vector<std::uint8_t> file_path_to_vector(const fs::path& path){
 
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
-    std::vector<std::uint8_t> fileData;
+    fileData.resize(size);
     if(!file.read(reinterpret_cast<char*>(fileData.data()), size)){
         std::cerr << "could not read" << "\n";
     }
 
     return fileData;
+}
+
+bool contains_signature(const std::vector<std::uint8_t>& fileData, const std::vector<std::uint8_t>& signature){
+    auto it = std::search(fileData.begin(), fileData.end(), signature.begin(), signature.end());
+    return it != fileData.end();
 }

@@ -5,6 +5,7 @@
 
 #define CANT_OPEN 300
 #define NOT_FILE 400
+#define CANT_READ 500
 
 namespace fs = std::filesystem;
 
