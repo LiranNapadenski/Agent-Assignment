@@ -15,6 +15,4 @@ bool contains_signature(const std::vector<std::uint8_t>& fileData, const std::ve
 
 std::vector<std::uint8_t> file_path_to_vector(const fs::path& path);
 
-void scanner(const fs::path& path, const std::vector<std::uint8_t>& signature);
-
-std::vector<uint8_t> extract_signature(const fs::path& path);
+void scanner(const fs::path& root, const std::vector<std::uint8_t>& signature);
