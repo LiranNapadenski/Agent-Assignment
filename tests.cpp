@@ -269,19 +269,14 @@ TEST_CASE("scanner prints infected ELF files and std::cout is redirected", "[fil
     fs::remove_all(root_dir);
 }
 
-#include "catch_amalgamated.hpp"
-#include <filesystem>
-#include <fstream>
-#include <vector>
-#include <cstdlib>
-#include <sstream>
-
-namespace fs = std::filesystem;
-
-TEST_CASE("Full program test", "[integration]") {
+TEST_CASE("Full program test with subdirectory", "[integration]") {
     // Create a test root directory
     fs::path root_dir = "test_full_program_root";
     fs::create_directories(root_dir);
+
+    // Create a subdirectory
+    fs::path sub_dir = root_dir / "subdir";
+    fs::create_directories(sub_dir);
 
     // Create a signature file
     fs::path sig_file = "test_signature.sig";
@@ -292,7 +287,7 @@ TEST_CASE("Full program test", "[integration]") {
         ofs.write(reinterpret_cast<const char*>(signature.data()), signature.size());
     }
 
-    // Create an infected file
+    // Create an infected file in root directory
     fs::path infected_file = root_dir / "infected.bin";
     {
         std::ofstream ofs(infected_file, std::ios::binary);
@@ -300,9 +295,24 @@ TEST_CASE("Full program test", "[integration]") {
 
         std::vector<std::uint8_t> data = {
             0x7F, 'E', 'L', 'F', // ELF header
-            0x01, 0x02,           
+            0x01, 0x02,
             0xDE, 0xAD, 0xBE, 0xEF, // Signature embedded
             0x04, 0x05
+        };
+        ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
+    }
+
+    // Create an infected file in subdirectory
+    fs::path infected_sub = sub_dir / "infected_sub.bin";
+    {
+        std::ofstream ofs(infected_sub, std::ios::binary);
+        REQUIRE(ofs.good());
+
+        std::vector<std::uint8_t> data = {
+            0x7F, 'E', 'L', 'F', // ELF header
+            0xAA, 0xBB,
+            0xDE, 0xAD, 0xBE, 0xEF, // Signature embedded
+            0xCC, 0xDD
         };
         ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
     }
@@ -315,7 +325,7 @@ TEST_CASE("Full program test", "[integration]") {
 
         std::vector<std::uint8_t> data = {
             0x7F, 'E', 'L', 'F', // ELF header
-            0x01, 0x02,           
+            0x01, 0x02,
             0x04, 0x05
         };
         ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
@@ -336,8 +346,9 @@ TEST_CASE("Full program test", "[integration]") {
 
     std::string program_output = output.str();
 
-    // Check that infected file was detected
+    // Check that infected files were detected
     REQUIRE(program_output.find(infected_file.string() + " is infected!") != std::string::npos);
+    REQUIRE(program_output.find(infected_sub.string() + " is infected!") != std::string::npos);
 
     // Check that clean file was not reported
     REQUIRE(program_output.find(clean_file.string() + " is infected!") == std::string::npos);
