@@ -269,7 +269,7 @@ TEST_CASE("scanner prints infected ELF files and std::cout is redirected", "[fil
     fs::remove_all(root_dir);
 }
 
-TEST_CASE("Full program test with subdirectory", "[integration]") {
+TEST_CASE("Full program test", "[find_sig]") {
 
     fs::path root_dir = "test_full_program_root";
     fs::create_directories(root_dir);
@@ -277,6 +277,9 @@ TEST_CASE("Full program test with subdirectory", "[integration]") {
 
     fs::path sub_dir = root_dir / "subdir";
     fs::create_directories(sub_dir);
+
+    fs::path sub_dir_empty = root_dir / "subdir_empty";
+    fs::create_directories(sub_dir_empty);
 
     // Create a signature file
     fs::path sig_file = "test_signature.sig";
