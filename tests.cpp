@@ -181,15 +181,15 @@ TEST_CASE("file_path_to_vector on a sig file", "[file_scanner]") {
 }
 
 TEST_CASE("scanner prints infected ELF files and std::cout is redirected", "[file_scanner]") {
-    // Setup test directory structure
+
     fs::path root_dir = "test_scanner_root";
     fs::path sub_dir  = root_dir / "subdir";
     fs::create_directories(sub_dir);
 
-    // Signature to search for
+
     std::vector<std::uint8_t> signature = {0xDE, 0xAD, 0xBE, 0xEF};
 
-    // Create infected ELF file in root
+
     fs::path infected_root = root_dir / "infected_root";
     {
         std::ofstream ofs(infected_root, std::ios::binary);
@@ -204,7 +204,7 @@ TEST_CASE("scanner prints infected ELF files and std::cout is redirected", "[fil
         ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
     }
 
-    // Create infected ELF file in subdirectory
+
     fs::path infected_sub = sub_dir / "infected_sub";
     {
         std::ofstream ofs(infected_sub, std::ios::binary);
@@ -219,7 +219,7 @@ TEST_CASE("scanner prints infected ELF files and std::cout is redirected", "[fil
         ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
     }
 
-    // Create a clean ELF file to ensure only infected files are printed
+
     fs::path clean_file = root_dir / "clean";
     {
         std::ofstream ofs(clean_file, std::ios::binary);
@@ -232,7 +232,7 @@ TEST_CASE("scanner prints infected ELF files and std::cout is redirected", "[fil
         ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
     }
 
-    // Redirect std::cout to capture output
+
     std::ostringstream captured;
     std::streambuf* oldCoutBuf = std::cout.rdbuf(captured.rdbuf());
 
@@ -270,11 +270,11 @@ TEST_CASE("scanner prints infected ELF files and std::cout is redirected", "[fil
 }
 
 TEST_CASE("Full program test with subdirectory", "[integration]") {
-    // Create a test root directory
+
     fs::path root_dir = "test_full_program_root";
     fs::create_directories(root_dir);
 
-    // Create a subdirectory
+
     fs::path sub_dir = root_dir / "subdir";
     fs::create_directories(sub_dir);
 
@@ -287,7 +287,7 @@ TEST_CASE("Full program test with subdirectory", "[integration]") {
         ofs.write(reinterpret_cast<const char*>(signature.data()), signature.size());
     }
 
-    // Create an infected file in root directory
+
     fs::path infected_file = root_dir / "infected.bin";
     {
         std::ofstream ofs(infected_file, std::ios::binary);
@@ -302,7 +302,7 @@ TEST_CASE("Full program test with subdirectory", "[integration]") {
         ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
     }
 
-    // Create an infected file in subdirectory
+
     fs::path infected_sub = sub_dir / "infected_sub.bin";
     {
         std::ofstream ofs(infected_sub, std::ios::binary);
@@ -317,7 +317,7 @@ TEST_CASE("Full program test with subdirectory", "[integration]") {
         ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
     }
 
-    // Create a clean file
+
     fs::path clean_file = root_dir / "clean.bin";
     {
         std::ofstream ofs(clean_file, std::ios::binary);

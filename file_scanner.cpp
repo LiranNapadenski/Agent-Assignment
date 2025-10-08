@@ -36,6 +36,7 @@ std::vector<std::uint8_t> file_path_to_vector(const fs::path& path){
     fileData.resize(size);
     if(!file.read(reinterpret_cast<char*>(fileData.data()), size)){
         std::cerr << "could not read" << "\n";
+        throw CANT_READ;
     }
 
     return fileData;
