@@ -1,6 +1,5 @@
 # Agent-Assignment
 
-<<<<<<< HEAD
 in order to compile run : make
 
 to start the test run : make run-tests
