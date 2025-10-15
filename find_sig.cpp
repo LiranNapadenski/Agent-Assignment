@@ -32,7 +32,7 @@ int main(int argc, char* argv[]){
     std::vector<uint8_t> signiture ;
 
     try{
-        signiture = file_path_to_vector(sigFile);
+        signiture = extract_sig(sigFile);
     }
     catch(int eNum){
 

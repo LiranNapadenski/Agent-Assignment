@@ -10,14 +10,14 @@
 
 namespace fs = std::filesystem;
 
-TEST_CASE("file_path_to_vector returns empty vector on an empty file", "[file_scanner]") {
+TEST_CASE("extract_sig returns empty vector on an empty file", "[file_scanner]") {
     fs::path test_path = "test_files/empty_file.txt";
 
     std::ofstream ofs(test_path, std::ios::binary);
     REQUIRE(ofs.good());
     ofs.close();
 
-    auto result = file_path_to_vector(test_path);
+    auto result = extract_sig(test_path);
 
     REQUIRE(result.empty());
 
@@ -25,7 +25,7 @@ TEST_CASE("file_path_to_vector returns empty vector on an empty file", "[file_sc
 }
 
 
-TEST_CASE("file_path_to_vector with ELF file", "[file_scanner]") {
+TEST_CASE("extract_sig with ELF file", "[file_scanner]") {
     fs::path test_path = "test_files/minimal_elf";
 
     fs::path cpp_file = "test_files/minimal.cpp";
@@ -39,7 +39,7 @@ TEST_CASE("file_path_to_vector with ELF file", "[file_scanner]") {
     REQUIRE(ret == 0);
     REQUIRE(fs::exists(test_path));
     REQUIRE(fs::is_regular_file(test_path));
-    auto result = file_path_to_vector(test_path);
+    auto result = extract_sig(test_path);
 
     REQUIRE(result.size() > 0);
 
@@ -67,7 +67,7 @@ TEST_CASE("is_elf with ELF file", "[file_scanner]"){
     REQUIRE(ret == 0);
     REQUIRE(fs::exists(test_path));
     REQUIRE(fs::is_regular_file(test_path));
-    auto result = file_path_to_vector(test_path);
+    auto result = extract_sig(test_path);
 
     REQUIRE(is_elf(result));
 
@@ -83,7 +83,7 @@ TEST_CASE("is_elf with no file", "[file_scanner]"){
     ofs << "int main() { return 0; }";
     ofs.close();
 
-    auto result = file_path_to_vector(test_path);
+    auto result = extract_sig(test_path);
 
     REQUIRE(!is_elf(result));
 
@@ -126,9 +126,7 @@ TEST_CASE("contains_signature with inserted signature", "[file_scanner]") {
 
     std::vector<uint8_t> sig = {0xDE, 0xAD, 0xBE, 0xEF}; 
     insert_signature(test_path, sig, 100);
-
-    auto result = file_path_to_vector(test_path);
-    REQUIRE(contains_signature(result, sig));
+    REQUIRE(contains_signature(test_path, sig));
 
     fs::remove(test_path);
     fs::remove(cpp_file);
@@ -151,16 +149,13 @@ TEST_CASE("contains_signature when the file does not have the signature", "[file
     REQUIRE(fs::is_regular_file(test_path));
 
     std::vector<uint8_t> sig = {0xDE, 0xAD, 0xBE, 0xEF}; 
-    //insert_signature(test_path, sig, 100);
-
-    auto result = file_path_to_vector(test_path);
-    REQUIRE(!contains_signature(result, sig));
+    REQUIRE(!contains_signature(test_path, sig));
 
     fs::remove(test_path);
     fs::remove(cpp_file);
 }
 
-TEST_CASE("file_path_to_vector on a sig file", "[file_scanner]") {
+TEST_CASE("extract_sig on a sig file", "[file_scanner]") {
     fs::path sig_path = "test_files/test_signature.sig";
 
     std::vector<std::uint8_t> signature = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
@@ -172,7 +167,7 @@ TEST_CASE("file_path_to_vector on a sig file", "[file_scanner]") {
         ofs.close();
     }
 
-    std::vector<std::uint8_t> result = file_path_to_vector(sig_path);
+    std::vector<std::uint8_t> result = extract_sig(sig_path);
 
     REQUIRE(result.size() == signature.size());
     REQUIRE(std::equal(result.begin(), result.end(), signature.begin()));
@@ -355,6 +350,159 @@ TEST_CASE("Full program test", "[find_sig]") {
 
     // Check that clean file was not reported
     REQUIRE(program_output.find(clean_file.string() + " is infected!") == std::string::npos);
+
+    // Cleanup
+    fs::remove_all(root_dir);
+    fs::remove(sig_file);
+}
+
+TEST_CASE("non-ELF files containing signature are not detected", "[file_scanner][integration]") {
+    fs::path root_dir = "test_nonelf_root";
+    fs::create_directories(root_dir);
+
+    std::vector<std::uint8_t> signature = {0xDE, 0xAD, 0xBE, 0xEF};
+
+    //Create a non-ELF file that contains the signature
+    fs::path nonelf = root_dir / "infected_nonelf.bin";
+    {
+        std::ofstream ofs(nonelf, std::ios::binary);
+        REQUIRE(ofs.good());
+        // start with some bytes that are NOT ELF magic
+        std::vector<std::uint8_t> data = {
+            0x10, 0x11, 0x12, 0x13,
+            0xDE, 0xAD, 0xBE, 0xEF, // signature embedded
+            0x20, 0x21
+        };
+        ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
+    }
+
+    //Create an ELF-like file that contains the signature
+    fs::path elf_file = root_dir / "infected_elf";
+    {
+        std::ofstream ofs(elf_file, std::ios::binary);
+        REQUIRE(ofs.good());
+        std::vector<std::uint8_t> data = {
+            0x7F, 'E', 'L', 'F',     // ELF magic
+            0x01, 0x02,
+            0xDE, 0xAD, 0xBE, 0xEF, // signature embedded
+            0x03
+        };
+        ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
+    }
+
+    //Create a clean ELF file that does NOT contain the signature
+    fs::path clean_elf = root_dir / "clean_elf";
+    {
+        std::ofstream ofs(clean_elf, std::ios::binary);
+        REQUIRE(ofs.good());
+        std::vector<std::uint8_t> data = {
+            0x7F, 'E', 'L', 'F',
+            0x00, 0x01, 0x02
+        };
+        ofs.write(reinterpret_cast<const char*>(data.data()), data.size());
+    }
+
+    // Redirect std::cout to capture scanner output
+    std::ostringstream captured;
+    std::streambuf* oldCoutBuf = std::cout.rdbuf(captured.rdbuf());
+
+    struct CoutRestore {
+        std::streambuf* buf;
+        ~CoutRestore(){ std::cout.rdbuf(buf); }
+    } restore{oldCoutBuf};
+
+    // Run scanner 
+    try {
+        scanner(root_dir, signature);
+    } catch (int code) {
+        FAIL("Caught int exception with value: " + std::to_string(code));
+    } catch (const std::exception& e) {
+        FAIL(std::string("std::exception: ") + e.what());
+    } catch (...) {
+        FAIL("Unknown non-std::exception caught");
+    }
+
+    // get captured output
+    std::string out = captured.str();
+
+    std::string expected_elf = elf_file.string() + " is infected!";
+    std::string unexpected_nonelf = nonelf.string() + " is infected!";
+    std::string unexpected_clean = clean_elf.string() + " is infected!";
+
+    INFO("Captured output:\n" << out);
+    // ELF file must be present
+    REQUIRE(out.find(expected_elf) != std::string::npos);
+    // non-ELF file must NOT be present
+    REQUIRE(out.find(unexpected_nonelf) == std::string::npos);
+    // clean ELF (no signature) must NOT be present
+    REQUIRE(out.find(unexpected_clean) == std::string::npos);
+
+    // Cleanup
+    fs::remove_all(root_dir);
+}
+
+
+TEST_CASE("Program handles GB infected file", "[integration]") {
+
+    fs::path root_dir = "test_gb_file_root";
+    fs::create_directories(root_dir);
+
+
+    fs::path sig_file = "gb_signature.sig";
+    std::vector<uint8_t> signature = {0xDE, 0xAD, 0xBE, 0xEF};
+    {
+        std::ofstream ofs(sig_file, std::ios::binary);
+        REQUIRE(ofs.good());
+        ofs.write(reinterpret_cast<const char*>(signature.data()), signature.size());
+    }
+
+    fs::path infected_file = root_dir / "huge_infected.bin";
+    {
+        std::ofstream ofs(infected_file, std::ios::binary);
+        REQUIRE(ofs.good());
+
+        // Write ELF header
+        uint8_t elf_header[4] = {0x7F, 'E', 'L', 'F'};
+        ofs.write(reinterpret_cast<const char*>(elf_header), 4);
+
+        // Write 20GB of filler using repeated blocks to avoid huge memory allocation
+        const size_t block_size = 1024 * 1024; // 1 MB block
+        const size_t total_size = 1024ULL * 1024ULL * 1024ULL * 20; //20gb
+        std::vector<uint8_t> block(block_size, 0xAA);
+
+        // Write GB minus a few MB, then insert the signature
+        size_t bytes_written = 0;
+        while (bytes_written + block_size < total_size - 10 * 1024 * 1024) {
+            ofs.write(reinterpret_cast<const char*>(block.data()), block.size());
+            bytes_written += block_size;
+        }
+
+        // Write the signature near the end
+        ofs.write(reinterpret_cast<const char*>(signature.data()), signature.size());
+
+        // Add some trailing bytes
+        ofs.put(0x00);
+        ofs.put(0xFF);
+    }
+
+    // Run
+    std::string command = "./find_sig " + root_dir.string() + " " + sig_file.string();
+    FILE* pipe = popen(command.c_str(), "r");
+    REQUIRE(pipe != nullptr);
+
+    char buffer[256];
+    std::ostringstream output;
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        output << buffer;
+    }
+
+    int ret_code = pclose(pipe);
+    REQUIRE(ret_code == 0);
+
+    std::string out = output.str();
+
+    // Check that the infected file was detected
+    REQUIRE(out.find(infected_file.string() + " is infected!") != std::string::npos);
 
     // Cleanup
     fs::remove_all(root_dir);
